@@ -1,0 +1,47 @@
+# Core
+streamlit>=1.35.0
+
+# LLM and agent
+langchain>=0.2.0
+langchain-core>=0.3.0
+langchain-groq>=0.2.0
+langchain-community>=0.2.0
+groq>=0.8.0
+
+# RAG — vector store
+chromadb>=0.5.0
+
+# RAG — embeddings and reranking
+sentence-transformers>=3.0.0
+
+# RAG — LlamaIndex retrieval
+llama-index-core>=0.11.0
+llama-index-vector-stores-chroma>=0.2.0
+llama-index-embeddings-huggingface>=0.3.0
+
+# RAG — lexical search
+rank-bm25>=0.2.2
+
+# PDF extraction
+pymupdf>=1.24.0
+pymupdf4llm>=0.0.17
+
+# Text splitting
+langchain-text-splitters>=0.2.0
+
+# Database
+sqlalchemy>=2.0.0
+
+# Date parsing — natural language date expressions
+dateparser>=1.1.8
+
+# Settings
+pydantic-settings>=2.0.0
+python-dotenv>=1.0.0
+
+# Encryption
+cryptography>=42.0.0
+
+# Testing
+pytest>=8.0.0
+pytest-mock>=3.14.0
