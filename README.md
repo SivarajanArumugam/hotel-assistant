@@ -59,6 +59,8 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
+> **Note:** If the command above doesn't work, you can do this manually — go to the project folder, find the file named `.env.example`, rename it to `.env` (just remove the `.example` part), then open it with any text editor.
+
 Open `.env` and set your Groq API key:
 
 ```
