@@ -147,12 +147,12 @@ def make_reservation_tools(session_id: str) -> list:
         guest_email = parts[-1]
         try:
             result = get_booking(booking_id, guest_email)
-            close_lookup_gate(session_id)
             if result is None:
                 return (
-                    "No reservation found matching that booking ID and email address. "
-                    "Please check your details and try again."
+                    "Those details did not match any active reservation. "
+                    "Please double-check your Booking ID and email address and try again."
                 )
+            close_lookup_gate(session_id)
             return (
                 f"Reservation Details:\n"
                 f"Booking ID: {result['booking_id']}\n"
@@ -190,10 +190,13 @@ def make_reservation_tools(session_id: str) -> list:
         guest_email = parts[-1]
         try:
             success = cancel_booking(booking_id, guest_email)
+            if not success:
+                return (
+                    "Those details did not match any active reservation. "
+                    "Please double-check your Booking ID and email address and try again."
+                )
             close_lookup_gate(session_id)
-            if success:
-                return f"Your reservation {booking_id} has been successfully cancelled."
-            return "Unable to cancel. No active reservation found matching that booking ID and email."
+            return f"Your reservation {booking_id} has been successfully cancelled."
         except Exception as e:
             return f"An error occurred while cancelling the reservation: {e}"
 
@@ -224,12 +227,12 @@ def make_reservation_tools(session_id: str) -> list:
         changes = dict(zip(parts[2::2], parts[3::2]))
         try:
             result = modify_booking(booking_id, guest_email, **changes)
-            close_lookup_gate(session_id)
             if result is None:
                 return (
-                    "Could not modify booking. Check your Booking ID and email address, "
-                    "or the booking may already be cancelled."
+                    "Those details did not match any active reservation. "
+                    "Please double-check your Booking ID and email address and try again."
                 )
+            close_lookup_gate(session_id)
             if result.get("no_change"):
                 b = result["booking"]
                 return (

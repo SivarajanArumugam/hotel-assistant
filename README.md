@@ -148,10 +148,11 @@ A LangChain ReAct agent that reasons about each user message, decides whether to
 | `update_booking_draft` | Update a field in the in-progress booking draft; clears the confirmation gate on any change |
 | `show_booking_summary` | Present the full booking summary to the user and arm the confirmation gate — must be called before `create_reservation` |
 | `create_reservation` | Finalise and persist a new booking from the draft; blocked in code if `show_booking_summary` was not called first |
-| `open_booking_lookup` | Open a one-time lookup gate and instruct the agent to collect fresh credentials from the user |
-| `view_reservation` | Retrieve details of an existing booking; blocked in code if the lookup gate is not open |
-| `cancel_reservation` | Cancel a confirmed booking; blocked in code if the lookup gate is not open |
-| `modify_reservation` | Atomically cancel + rebook with updated fields; blocked in code if the lookup gate is not open; skips cancel-rebook if no fields changed |
+| `start_new_booking` | Entry point for all new reservation requests — signals the agent to start collecting guest details, never ask for a Booking ID |
+| `lookup_existing_reservation` | Entry point for view/cancel/modify flows — opens the lookup gate and instructs the agent to ask for fresh credentials |
+| `view_reservation` | Retrieve details of an existing booking; blocked in code if the lookup gate is not open; retains gate on wrong credentials so user can retry |
+| `cancel_reservation` | Cancel a confirmed booking; blocked in code if the lookup gate is not open; retains gate on wrong credentials so user can retry |
+| `modify_reservation` | Atomically cancel + rebook with updated fields; blocked in code if the lookup gate is not open; skips cancel-rebook if no fields changed; retains gate on wrong credentials |
 
 The agent never chooses between RAG and tools arbitrarily — the system prompt provides explicit rules for when each tool is appropriate.
 
@@ -170,7 +171,7 @@ A module-level in-memory store keyed by `session_id` holds the booking draft dur
 
 Two additional session-level flags enforce critical workflow gates in code:
 
-- **Lookup gate** (`_lookup_gates`) — tracks whether `open_booking_lookup` has been called. View, cancel, and modify tools check this flag and return an access-denied error if it is not open, preventing the agent from reusing a Booking ID it saw in conversation history.
+- **Lookup gate** (`_lookup_gates`) — tracks whether `lookup_existing_reservation` has been called. View, cancel, and modify tools check this flag and return an access-denied error if it is not open, preventing the agent from reusing a Booking ID it saw in conversation history. The gate closes only on a **successful** lookup — wrong credentials leave it open so the user can retry without restarting the flow. A 10-minute TTL ensures the gate expires if the user abandons the lookup.
 - **Summary flag** (`_summary_flags`) — tracks whether `show_booking_summary` has been called. `create_reservation` checks this flag and refuses to proceed if the summary was never shown. The flag is cleared whenever any draft field is updated, forcing re-confirmation if details change.
 
 #### 5. Guardrails (`src/core/guardrails.py`)
@@ -198,8 +199,8 @@ Before calling `create_reservation`, the agent must call `show_booking_summary` 
 ### Atomic `modify_reservation` tool
 Rather than relying on the LLM to orchestrate a cancel + rebook sequence across multiple tool calls (which it can skip), a single `modify_reservation` tool handles the entire operation atomically in one DB transaction. This guarantees the old booking is always marked Cancelled when a modification succeeds. If the requested changes are identical to the existing booking, the cancel-rebook is skipped entirely and the original Booking ID is preserved.
 
-### Fresh credential enforcement via lookup gate
-When the user asks to view, cancel, or modify a booking, the agent must call `open_booking_lookup` first, which opens a session-level gate. The view, cancel, and modify tools check this gate in code — if it is not open they return an access-denied error regardless of what values the agent passes. This prevents the agent from silently reusing a Booking ID it saw earlier in the conversation history without asking the user to type it again. The gate closes automatically after a successful lookup operation.
+### Explicit flow entry points — `start_new_booking` and `lookup_existing_reservation`
+Two dedicated entry-point tools create an unambiguous fork between new bookings and existing reservation lookups. `start_new_booking` signals the agent to collect guest details from scratch — it never asks for a Booking ID. `lookup_existing_reservation` opens the session-level lookup gate and instructs the agent to collect fresh credentials. The view, cancel, and modify tools check this gate in code and return an access-denied error if it was not opened, preventing the agent from silently reusing a Booking ID seen in conversation history. The gate closes only on a successful credential match — wrong credentials leave it open so the user can retry immediately. A 10-minute TTL expires the gate if the user shifts topic or abandons the flow.
 
 ### Email hashed, never stored in plaintext
 Guest emails are stored only as SHA-256 hashes in the database. The hash is used for identity verification (Booking ID + email must match). The raw email is held in memory only during a session, Fernet-encrypted, and decrypted solely at the point of the DB write.

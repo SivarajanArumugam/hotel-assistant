@@ -69,16 +69,36 @@ def make_session_tools(session_id: str) -> list:
         today = datetime.date.today()
         return f"Today is {today.strftime('%Y-%m-%d')} ({today.strftime('%A')})."
 
-    # Fix 1: open_booking_lookup tool — must be called before view/cancel/modify
+    # Option 3: start_new_booking — entry point for all new booking requests
     @tool
-    def open_booking_lookup(placeholder: str) -> str:
+    def start_new_booking(placeholder: str) -> str:
         """
-        Call this tool FIRST whenever the user asks to view, cancel, or modify a reservation.
-        This opens a one-time lookup gate. After calling this tool you MUST stop and ask
-        the user: "Please provide your Booking ID and email address."
-        Do NOT call view_reservation, cancel_reservation, or modify_reservation until the
-        user replies with both values in their next message.
-        placeholder: pass any string, e.g. "open".
+        Call this tool FIRST when the user wants to make a NEW hotel reservation.
+        Triggers: "book a room", "I want to stay", "reserve a room", "make a booking",
+        "I need a room", "book for [dates]", or any intent to create a new reservation.
+        NEVER call this for viewing, cancelling, or modifying an existing booking.
+        After calling this tool, begin collecting: guest name, email, check-in date,
+        check-out date, and room type — one question at a time.
+        placeholder: pass any string, e.g. "start".
+        """
+        return (
+            "NEW BOOKING STARTED. Now ask the user for their details one at a time: "
+            "start with their full name. Do NOT ask for a Booking ID — the user does not have one yet."
+        )
+
+    # Option 1+2: renamed to lookup_existing_reservation — only for view/cancel/modify
+    @tool
+    def lookup_existing_reservation(placeholder: str) -> str:
+        """
+        ONLY for existing reservations. Call this when the user wants to VIEW, CANCEL,
+        or MODIFY a reservation they already have.
+        Triggers: "show my booking", "view my reservation", "cancel my booking",
+        "modify my reservation", "change my booking details", "what is my booking".
+        NEVER call this when the user wants to make a NEW booking or reserve a room.
+        After calling this tool, ask: "Please provide your Booking ID and email address."
+        Do NOT call view_reservation, cancel_reservation, or modify_reservation until
+        the user replies with both values in their next message.
+        placeholder: pass any string, e.g. "lookup".
         """
         open_lookup_gate(session_id)
         return (
@@ -254,7 +274,8 @@ def make_session_tools(session_id: str) -> list:
 
     return {
         "get_today": get_today,
-        "open_booking_lookup": open_booking_lookup,
+        "start_new_booking": start_new_booking,
+        "lookup_existing_reservation": lookup_existing_reservation,
         "show_booking_summary": show_booking_summary,
         "parse_date_expression": parse_date_expression,
         "update_booking_draft": update_booking_draft,

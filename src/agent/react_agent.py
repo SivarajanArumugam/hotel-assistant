@@ -51,7 +51,8 @@ def get_agent_executor(session_id: str, chat_history: list) -> AgentExecutor:
     all_tools = [
         search_hotel_knowledge,
         session_tools["get_today"],
-        session_tools["open_booking_lookup"],
+        session_tools["start_new_booking"],
+        session_tools["lookup_existing_reservation"],
         session_tools["show_booking_summary"],
         session_tools["create_reservation"],
         session_tools["parse_date_expression"],
